@@ -1,0 +1,17 @@
+[ 0.13s] B: pide R1
+[ 0.13s] A: pide R1
+[ 0.13s] B: obtuvo R1
+[ 0.63s] B: pide R2
+[ 0.63s] B: obtuvo R2
+[ 1.13s] B: terminó su trabajo
+[ 1.13s] B: liberó R2
+[ 1.13s] B: liberó R1
+[ 1.13s] A: obtuvo R1
+[ 1.63s] A: pide R2
+[ 1.63s] A: obtuvo R2
+[ 2.13s] A: terminó su trabajo
+[ 2.13s] A: liberó R2
+[ 2.13s] A: liberó R1
+
+SIN deadlock: ambos procesos terminaron correctamente
+No hay ciclo de espera.

@@ -1,0 +1,13 @@
+[ 0.09s] B: pide R2
+[ 0.09s] A: pide R1
+[ 0.09s] B: obtuvo R2
+[ 0.09s] A: obtuvo R1
+[ 0.59s] A: pide R2
+[ 0.59s] B: pide R1
+[ 3.60s] B: TIMEOUT esperando R1 (retiene R2) -> posible deadlock
+[ 3.60s] A: TIMEOUT esperando R2 (retiene R1) -> posible deadlock
+[ 3.60s] A: liberó R1
+[ 3.60s] B: liberó R2
+
+DEADLOCK detectado (ambos procesos agotaron el timeout)
+Ciclo de espera: A -> R2 -> B -> R1 -> A
