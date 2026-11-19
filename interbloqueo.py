@@ -5,9 +5,8 @@ Cada recurso está protegido por un lock (multiprocessing.Lock).
 
 Uso (desde una terminal: cmd, PowerShell o la terminal de VS Code):
     python interbloqueo.py             # sin argumento = modo "bloqueado" (botón Run de VS Code)
-    python interbloqueo.py bloqueado   # provoca el deadlock y lo detecta por timeout
-    python interbloqueo.py corregido   # mismo escenario, pero con orden global de locks
-
+    comando: python3.15.exe interbloqueo.py bloqueado   # provoca el deadlock y lo detecta por timeout
+    comando: python3.15.exe interbloqueo.py corregido   # mismo escenario, pero con orden global de locks
 
 Escenario:
     - Proceso A necesita R1 y luego R2.
