@@ -1,6 +1,6 @@
 r"""
 Demostración de interbloqueo (deadlock) con dos procesos y dos recursos.
-
+Rivarola Agustín, Torres Gil Bianca
 Cada recurso está protegido por un lock (multiprocessing.Lock).
 
 Uso (desde una terminal: cmd, PowerShell o la terminal de VS Code):
