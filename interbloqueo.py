@@ -27,15 +27,19 @@ ARRANQUE = 15.0 # margen para que ambos procesos arranquen (en Windows tardan m�
 
 def trabajador(nombre, orden, locks, inicio, mitad, salida, cola, t0, modo):
     """Proceso que necesita dos recursos, pedidos en el orden indicado."""
+    # Desempaqueta el orden en que este proceso debe pedir los recursos
     primero, segundo = orden
+    # Lista de recursos que este proceso ya retiene (para liberarlos al final)
     tomados = []
 
     def log(mensaje):
+        # Envía el evento a la cola con su tiempo relativo para armar el registro
         cola.put(("evento", time.time() - t0, nombre, mensaje))
 
     def tomar(recurso):
         """Pide un lock con timeout. Devuelve True si lo obtuvo."""
         log(f"pide {recurso}")
+        # Intenta adquirir el lock; si pasa el TIMEOUT se asume posible deadlock
         if locks[recurso].acquire(timeout=TIMEOUT):
             tomados.append(recurso)
             log(f"obtuvo {recurso}")
@@ -44,6 +48,7 @@ def trabajador(nombre, orden, locks, inicio, mitad, salida, cola, t0, modo):
             f"-> posible deadlock")
         return False
 
+    # Se asume bloqueado hasta que el proceso logre terminar su trabajo
     resultado = "BLOQUEADO"
     try:
         inicio.wait(ARRANQUE)                   # ambos arrancan al mismo tiempo
@@ -53,6 +58,7 @@ def trabajador(nombre, orden, locks, inicio, mitad, salida, cola, t0, modo):
                 # Garantiza que AMBOS ya retienen su primer recurso antes de
                 # pedir el segundo (así el deadlock no depende del azar).
                 mitad.wait(TIMEOUT)
+            # Pide el segundo recurso mientras retiene el primero (hold and wait)
             if tomar(segundo):
                 time.sleep(TRABAJO)             # usa ambos recursos
                 log("terminó su trabajo")
@@ -62,25 +68,33 @@ def trabajador(nombre, orden, locks, inicio, mitad, salida, cola, t0, modo):
             # timeout; si no, uno liberaría su lock y "destrabaría" al otro.
             salida.wait(TIMEOUT)
     except BrokenBarrierError:
+        # Una barrera expiró (el otro proceso no llegó a tiempo): se ignora
         pass
     finally:
         for recurso in reversed(tomados):       # siempre liberar lo retenido
             locks[recurso].release()
             log(f"liberó {recurso}")
+        # Avisa al proceso principal que terminó y con qué resultado
         cola.put(("fin", nombre, resultado))
 
 
 def main(modo):
+    # Un lock por recurso compartido
     locks = {"R1": mp.Lock(), "R2": mp.Lock()}
+    # Barreras para sincronizar a los dos procesos: arranque, mitad y salida
     inicio, mitad, salida = mp.Barrier(2), mp.Barrier(2), mp.Barrier(2)
+    # Cola por donde los procesos reportan eventos al proceso principal
     cola = mp.Queue()
 
+    # Orden de pedido de recursos: si B invierte el orden se forma el ciclo
     ordenes = {
         "A": ["R1", "R2"],
         "B": ["R2", "R1"] if modo == "bloqueado" else ["R1", "R2"],
     }
 
+    # Referencia de tiempo para los timestamps del registro
     t0 = time.time()
+    # Crea un proceso por trabajador (A y B)
     procesos = [
         mp.Process(target=trabajador,
                    args=(n, ordenes[n], locks, inicio, mitad, salida, cola, t0, modo))
@@ -91,6 +105,7 @@ def main(modo):
 
     eventos, resultados = [], {}
     try:
+        # Recolecta mensajes hasta que ambos procesos reporten su "fin"
         while len(resultados) < 2:
             item = cola.get(timeout=4 * TIMEOUT + 5)
             if item[0] == "fin":
@@ -99,17 +114,21 @@ def main(modo):
                 eventos.append(item[1:])
     except Exception:
         print("ERROR: los procesos no respondieron; se terminan a la fuerza.")
+    # Espera a los procesos y mata a los que sigan vivos
     for p in procesos:
         p.join(timeout=5)
         if p.is_alive():
             p.terminate()
 
     # --- Registro de la secuencia de adquisiciones -------------------------
+    # Ordena los eventos por tiempo y los formatea como líneas de log
     lineas = [f"[{t:5.2f}s] {proc}: {msg}" for t, proc, msg in sorted(eventos)]
     print(f"=== Modo: {modo} | orden A: {ordenes['A']} | orden B: {ordenes['B']} ===")
     print("\n".join(lineas))
 
+    # Procesos que agotaron el timeout sin terminar su trabajo
     bloqueados = [n for n, r in resultados.items() if r == "BLOQUEADO"]
+    # Si ambos quedaron bloqueados hay deadlock; si ninguno, todo salió bien
     if len(bloqueados) == 2:
         veredicto = "DEADLOCK detectado (ambos procesos agotaron el timeout)"
         ciclo = "Ciclo de espera: A -> R2 -> B -> R1 -> A"
@@ -120,15 +139,19 @@ def main(modo):
         veredicto, ciclo = f"Resultado inesperado: {resultados}", ""
     print(f"\n>>> {veredicto}\n>>> {ciclo}")
 
+    # Guarda el registro completo en un archivo según el modo ejecutado
     with open(f"registro_{modo}.log", "w", encoding="utf-8") as f:
         f.write("\n".join(lineas) + f"\n\n{veredicto}\n{ciclo}\n")
 
+    # Código de salida 0 si el resultado coincide con lo esperado para el modo
     esperado = len(bloqueados) == 2 if modo == "bloqueado" else not bloqueados
     return 0 if esperado and len(resultados) == 2 else 1
 
 
 if __name__ == "__main__":
+    # Toma el modo desde la línea de comandos (por defecto "bloqueado")
     modo = sys.argv[1] if len(sys.argv) > 1 else "bloqueado"
+    # Argumentos inválidos: muestra el uso y sale con código 2
     if len(sys.argv) > 2 or modo not in ("bloqueado", "corregido"):
         print(__doc__)
         sys.exit(2)
